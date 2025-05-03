@@ -5,7 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "clean-db": "node clean-db.js"
   },
   "author": "",
   "license": "ISC",
@@ -16,7 +17,9 @@
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "express-rate-limit": "^7.5.0",
+    "franc": "^6.2.0",
     "helmet": "^8.1.0",
+    "mongoose": "^8.14.1",
     "morgan": "^1.10.0",
     "openai": "^4.97.0",
     "uuid": "^11.1.0",
