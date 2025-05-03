@@ -102,6 +102,9 @@ if (process.env.NODE_ENV !== 'production') {
 
 const app = express();
 
+// Serve static files from the 'public/docs' directory at the '/api/docs' path
+app.use('/api/docs', express.static('public/docs'));
+
 // --- Middleware Setup ---
 
 // Add request ID and logger
