@@ -7,7 +7,6 @@ const { OpenAI } = require('openai');
 const { createLogger, format, transports } = require('winston');
 const { v4: uuidv4 } = require('uuid');
 const mongoose = require('mongoose'); // Mongoose for MongoDB
-// const { franc } = require('franc'); // Removed franc
 const LanguageDetect = require('languagedetect'); // Use languagedetect
 
 // --- Configuration & Setup ---
@@ -41,7 +40,9 @@ const LOG_LEVEL = process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production
 
 // MongoDB Configuration
 const MONGODB_URI = process.env.MONGODB_URI;
-const CACHE_TTL_DAYS = parseInt(process.env.CACHE_TTL_DAYS || '30', 10); // Cache time-to-live in days
+// CACHE_TTL_DAYS is now effectively unused for document expiration,
+// but you can keep the variable if you like, or remove it.
+// const CACHE_TTL_DAYS = parseInt(process.env.CACHE_TTL_DAYS || '30', 10); // Cache time-to-live in days - no longer causes expiry
 
 // Exit immediately if API key is missing
 if (!OPENAI_API_KEY) {
@@ -190,9 +191,9 @@ const definitionSchema = new mongoose.Schema({
 // Compound unique index includes 'lang'
 definitionSchema.index({ word: 1, length: 1, tone: 1, context: 1, lang: 1 }, { unique: true });
 
-// Add a TTL index to expire documents after CACHE_TTL_DAYS
-definitionSchema.index({ createdAt: 1 }, { expireAfterSeconds: CACHE_TTL_DAYS * 24 * 60 * 60 });
-logger.info(`MongoDB cache TTL set to ${CACHE_TTL_DAYS} days.`);
+// --- REMOVE OR COMMENT OUT THE TTL INDEX LINE BELOW ---
+// definitionSchema.index({ createdAt: 1 }, { expireAfterSeconds: CACHE_TTL_DAYS * 24 * 60 * 60 }); // REMOVE THIS LINE
+logger.info(`MongoDB cache TTL index is NOT configured in code. Documents will not expire automatically.`);
 
 
 const Definition = mongoose.model('Definition', definitionSchema);
@@ -478,6 +479,7 @@ async function saveDefinitionToCache(definitionData, logger) {
 
      try {
          // Attempt to create the document
+         // Mongoose create handles duplicate keys automatically with the unique index
          const doc = await Definition.create(definitionData);
          logger.debug('Cached definition attempt.', { term: definitionData.word, actualLength: definitionData.length, tone: definitionData.tone, context: definitionData.context, lang: definitionData.lang });
          metrics.cacheWritesSuccess++;
@@ -1037,7 +1039,8 @@ app.get('/api/metrics', (req, res) => {
                  cacheWritesSuccess: metrics.cacheWritesSuccess,
                  cacheWritesFailed: metrics.cacheWritesFailed,
                  dbConnectionStatus: metrics.dbConnectionStatus,
-                 cacheTTL_Days: CACHE_TTL_DAYS
+                 // Cache TTL is not used for expiry in code, but you might still report the unused variable
+                 // cacheTTL_Days: CACHE_TTL_DAYS // Uncomment if you want to show the variable value
              }
         },
         wordCounts: {
@@ -1066,6 +1069,8 @@ app.get('/api/metrics', (req, res) => {
             rateLimitWindowMinutes: RATE_LIMIT_WINDOW_MINUTES,
             logLevel: LOG_LEVEL,
             database: MONGODB_URI ? 'MongoDB (Enabled)' : 'Disabled',
+            // cacheTTL_Days: CACHE_TTL_DAYS, // Uncomment if you want to show the variable value here
+            cacheExpiry: 'Disabled (TTL index removed from schema)', // Explicitly state expiry is off
             temperatureControl: {
                  initial: INITIAL_TEMPERATURE,
                  min: TEMP_MIN,
@@ -1151,7 +1156,8 @@ const server = app.listen(PORT, async () => {
     logger.info(` Security Headers: Enabled`);
     logger.info(` CORS: Enabled`);
     logger.info(` Database: ${MONGODB_URI ? `MongoDB (Attempting connection to ${MONGODB_URI.replace(/:\/\/(.+?):(.+?)@/, '://***:***@')})` : 'Disabled (MONGODB_URI not set)'}`); // Mask credentials in log
-    logger.info(` Cache TTL: ${CACHE_TTL_DAYS} days`);
+    // Log explicitly that cache expiry is disabled
+    logger.info(` Cache Expiry: Disabled (Documents will not expire automatically)`);
     logger.info(` Temperature Control: Initial=${INITIAL_TEMPERATURE}, Min=${TEMP_MIN}, Max=${TEMP_MAX}`);
     logger.info(` Max Requested Length: ${MAX_REQUESTED_LENGTH}`);
     logger.info(` Language Detection: languagedetect (Min length: ${MIN_DETECTION_LENGTH})`);
